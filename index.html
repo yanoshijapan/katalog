@@ -481,6 +481,16 @@
     </div>
 </div>
 
+<!-- ============ FULLSCREEN LOADING OVERLAY ============ -->
+<div x-show="submitting" x-cloak class="fixed inset-0 z-[9999] bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center transition-opacity duration-300">
+    <div class="animate-spin h-12 w-12 border-t-[3px] border-l-[3px] border-[#111] rounded-full mb-6"></div>
+    <div class="font-editorial italic text-2xl text-[#111] animate-pulse mb-2">Memproses Pesanan...</div>
+    <div class="text-[10px] font-bold uppercase tracking-widest text-[#999] text-center">
+        Mohon tunggu sebentar<br>
+        <span class="text-[8px] font-normal lowercase mt-1 inline-block">/ 処理中... ページを閉じないでください</span>
+    </div>
+</div>
+	
 <!-- ============ SUCCESS MODAL ============ -->
 <div x-show="showSuccessModal" x-cloak class="fixed inset-0 z-[130] bg-black/60 backdrop-blur-sm flex items-center justify-center p-5">
     <div class="modal-enter w-full max-w-sm bg-white p-8 border border-[var(--border-color)]">
@@ -802,6 +812,7 @@ function orderApp() {
             }
 
             this.submitting = true;
+			await new Promise(resolve => setTimeout(resolve, 100));
             const payload = {
                 timestamp: new Date().toISOString(),
                 namaPemesan: this.customer.namaPemesan,
