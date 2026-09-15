@@ -94,6 +94,16 @@
 
     .bump { animation: bump 0.4s ease; }
     @keyframes bump { 0%{transform:scale(1)} 50%{transform:scale(1.3)} 100%{transform:scale(1)} }
+		
+		/* Animasi Progress Bar Minimalis */
+    @keyframes sliding-progress {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(250%); }
+    }
+    .animate-progress {
+        width: 40%;
+        animation: sliding-progress 1.2s infinite ease-in-out;
+    }
 </style>
 </head>
 <body x-data="orderApp()" x-init="init()">
@@ -161,12 +171,38 @@
 										<!-- Tambahan state isSelecting pada Alpine -->
 										<div x-data="{ isSelecting: false, selSize: null, qty: 1, isSingle: item.details.length === 1 && (item.details[0].size === '-' || item.details[0].size === '') }">
 												
-												<!-- Gambar Produk -->
-												<div class="img-container aspect-[3/4] w-full mb-4 flex items-center justify-center relative cursor-pointer" @click="item.mainImg && openZoom(item.mainImg)">
-														<img x-show="item.mainImg" :src="item.mainImg" class="w-full h-full object-cover">
-														<span x-show="!item.mainImg" class="text-xs text-gray-400 font-editorial italic" x-text="item.nama"></span>
+												<!-- Gambar Produk (Dengan Loading & Error State) -->
+												<div x-data="{ imgState: item.mainImg ? 'loading' : 'none', imgSrc: item.mainImg, retry() { this.imgState = 'loading'; this.imgSrc = item.mainImg + (item.mainImg.includes('?') ? '&' : '?') + 'r=' + Date.now(); } }" 
+														 x-init="$watch('item.mainImg', val => { imgSrc = val; imgState = val ? 'loading' : 'none'; })"
+														 class="img-container aspect-[3/4] w-full mb-4 flex flex-col items-center justify-center relative cursor-pointer bg-[#F9F9F9]" 
+														 @click="imgState === 'loaded' && openZoom(imgSrc)">
 														
-														<div x-show="item.mainImg" class="absolute bottom-3 right-3 w-7 h-7 bg-white/90 backdrop-blur rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-sm">
+														<!-- Progress Bar Loading -->
+														<div x-show="imgState === 'loading' && imgSrc" class="absolute inset-0 flex flex-col items-center justify-center z-10 px-8 bg-[#F9F9F9]">
+																<div class="w-full max-w-[80px] h-[2px] bg-[#EAEAEA] overflow-hidden relative">
+																		<div class="absolute top-0 bottom-0 left-0 bg-[#111] animate-progress"></div>
+																</div>
+																<span class="text-[8px] uppercase tracking-[0.2em] text-[#999] mt-3 animate-pulse">Memuat...</span>
+														</div>
+
+														<!-- Error State (Muat Ulang) -->
+														<div x-show="imgState === 'error'" class="absolute inset-0 flex flex-col items-center justify-center z-20 bg-[#F9F9F9]" @click.stop="retry()">
+																<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent-red)" stroke-width="1.5" class="mb-2"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+																<span class="text-[9px] font-bold uppercase tracking-widest text-[#111]">Muat Ulang</span>
+																<span class="text-[8px] text-[#999] lowercase mt-1">/ 再読み込み</span>
+														</div>
+
+														<!-- Gambar Asli -->
+														<img x-show="imgSrc" :src="imgSrc" 
+																 @load="imgState = 'loaded'" @error="imgState = 'error'"
+																 class="w-full h-full object-cover transition-opacity duration-700"
+																 :class="imgState === 'loaded' ? 'opacity-100' : 'opacity-0'">
+														
+														<!-- Fallback Jika Tidak Ada Gambar dari Database -->
+														<span x-show="!imgSrc" class="text-xs text-[#999] font-editorial italic text-center px-2" x-text="item.nama"></span>
+														
+														<!-- Ikon Kaca Pembesar -->
+														<div x-show="imgState === 'loaded'" class="absolute bottom-3 right-3 w-7 h-7 bg-white/90 backdrop-blur rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-sm z-10">
 																<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
 														</div>
 												</div>
@@ -235,19 +271,43 @@
         <div class="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-6">
             <template x-for="(cat, idx) in categories" :key="cat">
                 <button @click="openCategory(cat)" class="cat-card fade-stagger text-left block w-full" :style="'animation-delay:' + (idx*0.08) + 's'">
-                    <div class="aspect-[4/5] w-full bg-[#F4F4F4] relative">
-                        <img x-show="catPreviewImg(cat)" :src="catPreviewImg(cat)" class="absolute inset-0 w-full h-full object-cover">
-                        <div x-show="!catPreviewImg(cat)" class="absolute inset-0 flex items-center justify-center text-[#CCC] font-editorial italic text-sm">
-                            Tidak Ada Gambar <span class="text-[9px] not-italic ml-1">/ 画像なし</span>
-                        </div>
-                        <!-- Gradient Overlay -->
-                        <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-80"></div>
-                        
-                        <div class="absolute bottom-5 left-4 right-4 text-white">
-                            <div class="text-[9px] uppercase tracking-[0.15em] mb-1 text-white/80" x-text="(mapping[cat]||[]).length + ' Produk (点)'"></div>
-                            <div class="font-editorial text-lg leading-tight" x-text="catMeta(cat).label"></div>
-                        </div>
-                    </div>
+                    <div x-data="{ state: catPreviewImg(cat) ? 'loading' : 'none', imgSrc: catPreviewImg(cat), retry() { this.state = 'loading'; this.imgSrc = catPreviewImg(cat) + (catPreviewImg(cat).includes('?') ? '&' : '?') + 'r=' + Date.now(); } }" 
+												 x-init="$watch('catPreviewImg(cat)', val => { imgSrc = val; state = val ? 'loading' : 'none'; })"
+												 class="aspect-[4/5] w-full bg-[#F4F4F4] relative flex items-center justify-center">
+												
+												<!-- Progress Bar Loading -->
+												<div x-show="state === 'loading' && imgSrc" class="absolute inset-0 flex flex-col items-center justify-center z-10 px-8 bg-[#F9F9F9]">
+														<div class="w-full max-w-[80px] h-[2px] bg-[#EAEAEA] overflow-hidden relative">
+																<div class="absolute top-0 bottom-0 left-0 bg-[#111] animate-progress"></div>
+														</div>
+														<span class="text-[8px] uppercase tracking-[0.2em] text-[#999] mt-3 animate-pulse">Memuat...</span>
+												</div>
+
+												<!-- Error (Muat Ulang) -->
+												<div x-show="state === 'error'" class="absolute inset-0 flex flex-col items-center justify-center z-20 bg-[#F4F4F4]" @click.stop="retry()">
+														<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent-red)" stroke-width="1.5" class="mb-2"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+														<span class="text-[9px] font-bold uppercase tracking-widest text-[#111]">Muat Ulang</span>
+												</div>
+
+												<!-- Gambar Asli -->
+												<img x-show="imgSrc" :src="imgSrc" 
+														 @load="state = 'loaded'" @error="state = 'error'"
+														 class="absolute inset-0 w-full h-full object-cover transition-opacity duration-700"
+														 :class="state === 'loaded' ? 'opacity-100' : 'opacity-0'">
+														 
+												<!-- Fallback -->
+												<div x-show="!imgSrc" class="absolute inset-0 flex items-center justify-center text-[#CCC] font-editorial italic text-sm">
+														Tidak Ada Gambar <span class="text-[9px] not-italic ml-1">/ 画像なし</span>
+												</div>
+												
+												<!-- Gradient Overlay (Hanya muncul jika selesai diload atau tidak ada gambar) -->
+												<div x-show="state === 'loaded' || !imgSrc" class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-80 z-10 transition-opacity"></div>
+												
+												<div class="absolute bottom-5 left-4 right-4 text-white z-20">
+														<div class="text-[9px] uppercase tracking-[0.15em] mb-1 text-white/80" x-text="(mapping[cat]||[]).length + ' Produk (点)'"></div>
+														<div class="font-editorial text-lg leading-tight" x-text="catMeta(cat).label"></div>
+												</div>
+										</div>
                 </button>
             </template>
         </div>
@@ -268,12 +328,38 @@
 										<!-- Tambahan state isSelecting pada Alpine -->
 										<div x-data="{ isSelecting: false, selSize: null, qty: 1, isSingle: item.details.length === 1 && (item.details[0].size === '-' || item.details[0].size === '') }">
 												
-												<!-- Gambar Produk -->
-												<div class="img-container aspect-[3/4] w-full mb-4 flex items-center justify-center relative cursor-pointer" @click="item.mainImg && openZoom(item.mainImg)">
-														<img x-show="item.mainImg" :src="item.mainImg" class="w-full h-full object-cover">
-														<span x-show="!item.mainImg" class="text-xs text-gray-400 font-editorial italic" x-text="item.nama"></span>
+												<!-- Gambar Produk (Dengan Loading & Error State) -->
+												<div x-data="{ imgState: item.mainImg ? 'loading' : 'none', imgSrc: item.mainImg, retry() { this.imgState = 'loading'; this.imgSrc = item.mainImg + (item.mainImg.includes('?') ? '&' : '?') + 'r=' + Date.now(); } }" 
+														 x-init="$watch('item.mainImg', val => { imgSrc = val; imgState = val ? 'loading' : 'none'; })"
+														 class="img-container aspect-[3/4] w-full mb-4 flex flex-col items-center justify-center relative cursor-pointer bg-[#F9F9F9]" 
+														 @click="imgState === 'loaded' && openZoom(imgSrc)">
 														
-														<div x-show="item.mainImg" class="absolute bottom-3 right-3 w-7 h-7 bg-white/90 backdrop-blur rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-sm">
+														<!-- Progress Bar Loading -->
+														<div x-show="imgState === 'loading' && imgSrc" class="absolute inset-0 flex flex-col items-center justify-center z-10 px-8 bg-[#F4F4F4]">
+																<div class="w-full max-w-[100px] h-[2px] bg-[#EAEAEA] overflow-hidden relative">
+																		<div class="absolute top-0 bottom-0 left-0 bg-[#111] animate-progress"></div>
+																</div>
+																<span class="text-[8px] uppercase tracking-[0.2em] text-[#999] mt-3 animate-pulse">Memuat...</span>
+														</div>
+
+														<!-- Error State (Muat Ulang) -->
+														<div x-show="imgState === 'error'" class="absolute inset-0 flex flex-col items-center justify-center z-20 bg-[#F9F9F9]" @click.stop="retry()">
+																<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent-red)" stroke-width="1.5" class="mb-2"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+																<span class="text-[9px] font-bold uppercase tracking-widest text-[#111]">Muat Ulang</span>
+																<span class="text-[8px] text-[#999] lowercase mt-1">/ 再読み込み</span>
+														</div>
+
+														<!-- Gambar Asli -->
+														<img x-show="imgSrc" :src="imgSrc" 
+																 @load="imgState = 'loaded'" @error="imgState = 'error'"
+																 class="w-full h-full object-cover transition-opacity duration-700"
+																 :class="imgState === 'loaded' ? 'opacity-100' : 'opacity-0'">
+														
+														<!-- Fallback Jika Tidak Ada Gambar dari Database -->
+														<span x-show="!imgSrc" class="text-xs text-[#999] font-editorial italic text-center px-2" x-text="item.nama"></span>
+														
+														<!-- Ikon Kaca Pembesar -->
+														<div x-show="imgState === 'loaded'" class="absolute bottom-3 right-3 w-7 h-7 bg-white/90 backdrop-blur rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-sm z-10">
 																<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
 														</div>
 												</div>
@@ -354,9 +440,29 @@
     <div x-show="cart.length>0" class="space-y-6 mb-12">
         <template x-for="c in cart" :key="c.id">
             <div class="flex gap-4 items-center group">
-                <div class="w-16 h-24 bg-[#F9F9F9] shrink-0 flex items-center justify-center relative">
-										<img x-show="c.img" :src="c.img" class="w-full h-full object-cover">
-                </div>
+                <div x-data="{ state: c.img ? 'loading' : 'none', imgSrc: c.img, retry() { this.state = 'loading'; this.imgSrc = c.img + (c.img.includes('?') ? '&' : '?') + 'r=' + Date.now(); } }"
+										 class="w-16 h-24 bg-[#F9F9F9] shrink-0 flex items-center justify-center relative overflow-hidden">
+										
+										<!-- Spinner Mini -->
+										<!-- Progress Bar Mini -->
+										<div x-show="state === 'loading' && imgSrc" class="absolute inset-0 flex flex-col items-center justify-center z-10 px-3 bg-[#F9F9F9]">
+												<div class="w-full h-[2px] bg-[#EAEAEA] overflow-hidden relative">
+														<div class="absolute top-0 bottom-0 left-0 bg-[#111] animate-progress"></div>
+												</div>
+										</div>
+
+										<!-- Error Mini -->
+										<div x-show="state === 'error'" class="absolute inset-0 flex flex-col items-center justify-center z-20 bg-[#F9F9F9] cursor-pointer" @click.stop="retry()">
+												<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-red)" stroke-width="2" class="mb-1"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+												<span class="text-[7px] font-bold uppercase tracking-widest text-[#111]">Ulang</span>
+										</div>
+
+										<!-- Gambar Asli -->
+										<img x-show="imgSrc" :src="imgSrc" 
+												 @load="state = 'loaded'" @error="state = 'error'"
+												 class="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
+												 :class="state === 'loaded' ? 'opacity-100' : 'opacity-0'">
+								</div>
                 <div class="flex-1 min-w-0 flex flex-col justify-between py-1">
                     <div>
                         <div class="font-editorial text-sm truncate text-[#111]" x-text="c.nama"></div>
